@@ -7,6 +7,13 @@
 - **Python**: Core development language.
 - **OSC (Open Sound Control)**: Networking protocol for communication.
 - **python-osc**: Standard library for implementing OSC in Python environments.
+- **pigpio**: GPIO library for hardware control (PWM).
+
+## Architecture
+The system is composed of three main modules:
+1.  **OSC Server (`osc_server.py`)**: Listens for incoming OSC messages and dispatches commands.
+2.  **PWM Controller (`pwm_controller.py`)**: Manages `pigpio` connection and updates duty cycles based on OSC commands.
+3.  **Notifier (`notifier.py`)**: Sends status updates or alerts to external services (OpenClaw, Telegram).
 
 ## Building and Running
 ### Setup
@@ -21,7 +28,7 @@ sudo pigpiod -t 1
 ### Syncing to Raspberry Pi
 To sync local changes to the Pi:
 ```bash
-rsync -avz --exclude 'venv' --exclude '.git' ./ hpi:~/Projects/pi_osc/
+rsync -avz --exclude '.venv' --exclude '.git' --exclude 'docs' ./ hpi:~/Projects/pi_osc/
 ```
 
 ### Running
@@ -29,16 +36,6 @@ To start the OSC receiver:
 ```bash
 python receive_osc.py --ip 0.0.0.0 --port 5005
 ```
-
-## Testing Utilities
-### Soft PWM Test
-The `softpwm_test.py` script is used to verify and tune software PWM settings on the Raspberry Pi.
-- **Usage**: `python softpwm_test.py`
-- **Functionality**:
-  - Connects to the `pigpio` daemon.
-  - Sets PWM on GPIO pins 5, 6, 16, and 26.
-  - Interactively prompts for a period (in ms) to adjust the frequency dynamically.
-  - Enter a non-number or press Enter on an empty line to exit and stop PWM.
 
 ## Development Conventions
 - **Hardware Integration**: Focus on efficient, low-latency interaction with Raspberry Pi GPIO pins.
