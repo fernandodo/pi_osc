@@ -28,7 +28,7 @@ sudo pigpiod -t 1
 ### Syncing to Raspberry Pi
 To sync local changes to the Pi:
 ```bash
-rsync -avz --exclude '.venv' --exclude '.git' --exclude 'docs' ./ hpi:~/Projects/pi_osc/
+rsync -avz --exclude '.venv' --exclude '.git' --exclude '__pycache__' --exclude 'docs' ./ hpi:~/Projects/pi_osc/
 ```
 
 ### Running

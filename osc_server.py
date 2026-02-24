@@ -2,6 +2,7 @@ import time
 import threading
 import json
 import os
+import pwm_controller
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import BlockingOSCUDPServer
 
@@ -63,31 +64,35 @@ def sync_to_shm():
     except Exception as e:
         print(f"[ERROR] Sync to SHM failed: {e}")
 
-def update_pwm_mock():
-    """Calculates and prints PWM on-times based on current state"""
+def update_pwm():
+    """Calculates and updates actual PWM on-times based on current state"""
     sync_to_shm() # Update shared state file
     with state.lock:
         # 1. Linear Mapping: 1.5 + (0.5 * speed * (-1 if direction else 1))
         linear_mod = -1.0 if state.direction else 1.0
         linear_ms = 1.5 + (0.5 * state.current_speed * linear_mod)
+        pwm_controller.set_pwm(0, linear_ms, is_hardware=True) # Channel 0 for Linear
         
         # 2. Angular Mapping
         angular_mod = 1.0 if state.turn_right else -1.0
         angular_ms = 1.5 + (0.5 * state.current_angular_velocity * angular_mod)
+        pwm_controller.set_pwm(1, angular_ms, is_hardware=True) # Channel 1 for Angular
 
-        # 3. Pulse Mapping
+        # 3. Pulse Mapping (Assume Soft Pin 5)
         pulse_ms = 1.5
         if state.start_active:
             pulse_ms = 2.0
         elif state.break_active:
             pulse_ms = 1.0
+        pwm_controller.set_pwm(5, pulse_ms, is_hardware=False)
             
-        # 4. Pitch Mapping
+        # 4. Pitch Mapping (Assume Soft Pin 6)
         pitch_map = {0: 1.0, 1: 1.5, 2: 2.0}
         pitch_ms = pitch_map.get(state.current_pitch, 1.5)
+        pwm_controller.set_pwm(6, pitch_ms, is_hardware=False)
         
-        print(f"[PWM MOCK] Linear: {linear_ms:.2f}ms | Angular: {angular_ms:.2f}ms | "
-              f"Pulse: {pulse_ms:.2f}ms | Pitch: {pitch_ms:.2f}ms")
+        # Optional: Print for debugging
+        # print(f"[PWM] L={linear_ms:.2f}ms, A={angular_ms:.2f}ms, Pulse={pulse_ms:.2f}ms, Pitch={pitch_ms:.2f}ms")
 
 # --- OSC Handlers ---
 
@@ -104,7 +109,7 @@ def backward_handler(address, *args):
         state.current_speed = 0.0
         state.pending_speed = 0.0
         print(f"Backward message received ({is_backward}). Speed reset to 0.")
-        update_pwm_mock()
+        update_pwm()
 
 def right_handler(address, *args):
     with state.lock:
@@ -119,7 +124,7 @@ def left_handler(address, *args):
         state.current_angular_velocity = 0.0
         state.pending_angular_velocity = 0.0
         print(f"Left message received ({is_left}). Angular velocity reset to 0.")
-        update_pwm_mock()
+        update_pwm()
 
 def update_time_handler(address, *args):
     with state.lock:
@@ -140,7 +145,7 @@ def start_handler(address, *args):
             state.start_active = True
             state.last_start_trigger_time = time.time()
             print("Start triggered (0.2s pulse)")
-            update_pwm_mock()
+            update_pwm()
         else:
             print("Start received but ignored (start_enable is False)")
 
@@ -149,7 +154,7 @@ def break_handler(address, *args):
         state.break_active = True
         state.last_break_trigger_time = time.time()
         print("Break triggered (0.2s pulse)")
-        update_pwm_mock()
+        update_pwm()
 
 def pitch_handler(address, *args):
     mapping = {
@@ -164,7 +169,7 @@ def pitch_handler(address, *args):
         state.current_pitch = new_pitch
         state.last_pitch_change_time = time.time()
         print(f"Pitch updated to: {new_pitch}")
-        update_pwm_mock()
+        update_pwm()
 
 def stop_handler(address, *args):
     print("System stop received.")
@@ -204,7 +209,7 @@ def watcher_loop():
                 needs_update = True
         
         if needs_update:
-            update_pwm_mock()
+            update_pwm()
             
         time.sleep(0.05)
 
@@ -213,6 +218,12 @@ def watcher_loop():
 if __name__ == "__main__":
     ip = "0.0.0.0"
     port = 5005
+    
+    # Initialize PWM Controller
+    # Assuming soft pins: 5, 6 and hard channels: 0, 1
+    print("Initializing PWM Controller...")
+    pwm_controller.init_pwm(soft_pins=[5, 6], period_ms=15.0, pwm_range=1000, init_hard_channels=[0, 1])
+    pwm_controller.enable() # Start in neutral state
     
     dispatcher = Dispatcher()
     dispatcher.map("/forward", forward_handler)
@@ -241,6 +252,7 @@ if __name__ == "__main__":
         print("\nStopping server...")
     finally:
         state.running = False
+        pwm_controller.cleanup()
         # Remove state file to signal shutdown
         shm_path = "/dev/shm/robot_state.json"
         if os.path.exists(shm_path):
