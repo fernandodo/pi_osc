@@ -23,7 +23,7 @@ class RobotState:
         self.pending_angular_velocity = 0.0
         self.last_right_msg_time = 0.0
         
-        self.update_time = 0.1 # Default delay
+        self.update_time = 0.1 # Default delay per spec
         self.start_enabled = False
         self.start_active = False
         self.last_start_trigger_time = 0.0
@@ -81,13 +81,14 @@ def update_pwm():
         # 3. Pulse Mapping (Assume Soft Pin 5)
         pulse_ms = 1.5
         if state.start_active:
-            pulse_ms = 2.0
+            pulse_ms = 1.0 # Per spec mapping update
         elif state.break_active:
-            pulse_ms = 1.0
+            pulse_ms = 2.0 # Per spec mapping update
         pwm_controller.set_pwm(5, pulse_ms, is_hardware=False)
             
         # 4. Pitch Mapping (Assume Soft Pin 6)
-        pitch_map = {0: 1.0, 1: 1.5, 2: 2.0}
+        # Per spec: Up(0)=2.0ms, Neutral(1)=1.5ms, Down(2)=1.0ms
+        pitch_map = {0: 2.0, 1: 1.5, 2: 1.0}
         pitch_ms = pitch_map.get(state.current_pitch, 1.5)
         pwm_controller.set_pwm(6, pitch_ms, is_hardware=False)
         

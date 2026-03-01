@@ -25,7 +25,7 @@ The server maintains an internal state to handle debouncing and priority logic b
 - `current_angular_velocity` (float): Current applied angular velocity (0.0 - 1.0).
 - `pending_angular_velocity` (float): Angular velocity waiting for confirmation.
 - `last_right_msg_time` (float): Timestamp of last `/right` msg.
-- `update_time` (float): Configurable confirmation delay in seconds (Default: 0.5s).
+- `update_time` (float): Configurable confirmation delay in seconds (Default: 0.1s).
 - `start_enabled` (bool): If `True`, the `/start` command can be triggered.
 - `start_active` (bool): Transient state that remains `True` for 0.2s after a `/start` trigger.
 - `last_start_trigger_time` (float): Timestamp when `/start` was last triggered.
@@ -89,12 +89,6 @@ The server synchronizes its internal state to a JSON file in the Linux shared me
 ### `pitch_handler(address, value)`
 ... (Previous logic) ...
 
-### `query_handler(address, *args)`
-- **Logic**: 
-    1. Responds to the sender with current state values.
-    2. Sent Address: `/status`.
-    3. Arguments: `[speed, direction, angular_vel, turn_right, start_active, break_active, pitch]`.
-
 ### Main Loop / Background Watcher
 ... (Rule 1, 2, 3, 4) ...
 - **Rule 5 (Pitch Restore)**: If `current_pitch` is 0 or 2 AND `(current_time - last_pitch_change_time) > 10.0s`:
@@ -116,16 +110,16 @@ All states are converted to millisecond (ms) on-time values for the `PWMControll
 ### B. Start / Break Pulses
 | State | `on_time_ms` |
 | :--- | :--- |
-| Start Active | 2.0ms |
-| Break Active | 1.0ms |
+| Start Active | 1.0ms |
+| Break Active | 2.0ms |
 | Inactive (Both False) | 1.5ms |
 
 ### C. Pitch
 | State | `on_time_ms` |
 | :--- | :--- |
-| Up (0) | 1.0ms |
+| Up (0) | 2.0ms |
 | Neutral (1) | 1.5ms |
-| Down (2) | 2.0ms |
+| Down (2) | 1.0ms |
 
 ## 7. Initialization Sequence
 1. Load configuration from `config.py`.
